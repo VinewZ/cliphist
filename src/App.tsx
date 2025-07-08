@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react"
-import { createClient } from "../../clutchRPC/ts/"
+import { useTheme } from '../providers/theme.tsx';
+import { createClient } from "../../clutchRPC/ts"
 import { name } from "../package.json"
+import { Input } from "./components/ui/input.tsx";
+
+const client = createClient(9023)
 
 export function App() {
+  const { setTheme } = useTheme();
   const [list, setList] = useState("")
-  const client = createClient(9023)
 
   async function getList() {
 
     const shell = await client.useShell({
       appName: name,
-      command: "cliphist list",
+      command: `cliphist list | head -n 20 | awk '{print $1}' | xargs -n1 cliphist decode`,
       timeoutMs: 30000
     })
 
@@ -19,16 +23,28 @@ export function App() {
   }
 
   useEffect(() => {
+    window.parent.postMessage({ type: "clutch-extension-ready" }, "*");
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === "theme") setTheme(e.data.theme);
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  useEffect(() => {
     getList()
   }, [])
 
   return (
-    <code>
+    <div>
+    <Input/>
+    <div>
       {list.split(`\n`).map((line, i) => (
-        <div key={i}>
-          {line.split(" ").slice(1).join(" ")}
+        <div key={i} className="text-white">
+          {line}
         </div>
       ))}
-    </code>
+    </div>
+    </div>
   )
 }
